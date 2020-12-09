@@ -20,54 +20,39 @@ import com.typesafe.scalalogging.LazyLogging
 import org.apache.spark.sql.{ Dataset, Row, SparkSession }
 import org.rogach.scallop._
 
+import scala.Option
+
 class Processing(spark: SparkSession) extends LazyLogging {
 
   val steps = new Steps(spark)
 
-  val dagSteps = Vector(
-    steps.decodeData _,
-    steps.selectFinalFields _
-  )
-
   def process(
       input: String,
       output: String,
-      limit: Option[Int],
       lines: Option[Int],
+      filterOpt: Option[String],
       debug: Boolean
   ): Unit = {
     logger.info("Starting processing")
 
     val rawData = steps.read(input)
-    logger.debug(s"The schema is now: ${rawData.schema.treeString}")
+    if (debug) {
+      logger.debug(s"The schema is now: ${rawData.schema.treeString}")
+    }
 
-    val fullData = combineSteps(dagSteps, rawData, stepLimit = limit, debug)
-    steps.writeOrShowData(fullData, output, linesToShow = lines)
+    val processed = filterOpt.fold(ifEmpty = rawData)(filterValue => filter(rawData, filterValue))
+
+    steps.writeOrShowData(processed, output, linesToShow = lines)
     logger.info("Finished processing")
   }
 
-  /**
-    * Combines list of steps and print
-    *
-    * @param dagSteps The dag steps to combine
-    * @param df The input Dataframe
-    * @param limit If set, Limits amount of combined steps to given number
-    * @param debug If true, prints the physical and logical plan
-    */
-  def combineSteps(
-      dagSteps: Vector[Dataset[Row] => Dataset[Row]],
+  def filter(
       df: Dataset[Row],
-      stepLimit: Option[Int],
-      debug: Boolean
-  ) =
-    dagSteps
-      .slice(0, stepLimit.getOrElse(dagSteps.size))
-      .foldLeft(df) { (dataframe, step) =>
-        val rf = step(dataframe)
-        logger.debug(s"The schema is now: ${rf.schema.treeString}")
-        if (debug) rf.explain(true)
-        rf
-      }
+      filter: String
+  ): Dataset[Row] = {
+    logger.info(s"Filtering data based on: $filter")
+    df.filter(filter)
+  }
 }
 
 /**
@@ -102,15 +87,14 @@ class Conf(arguments: Seq[String]) extends ScallopConf(arguments) {
     default = Option(false)
   )
 
+  val sqlFilter = opt[String](
+    descr = "conditionExpr to be applied on a filter .filter('conditionExpr')",
+    required = false
+  )
+
   verify()
 }
 
-/**
-  * Main entrypoint, parses the command line arguments, gets or creates the
-  * SparkSession und starts the DAG processing.
-  *
-  * @param args The unparsed command line arguments
-  */
 object Processing extends LazyLogging {
   def main(args: Array[String]): Unit = {
     logger.info(s"Starting '${BuildInfo.name}' version '${BuildInfo.version}'")
@@ -127,8 +111,8 @@ object Processing extends LazyLogging {
     try processing.process(
       input = conf.input(),
       output = conf.output(),
-      limit = conf.limit.toOption,
       lines = conf.linesToShow.toOption,
+      filterOpt = conf.sqlFilter.toOption,
       debug = conf.debug()
     )
     finally {

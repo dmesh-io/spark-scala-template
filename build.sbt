@@ -19,7 +19,7 @@
  * Project metadata
  */
 
-name := "PROJECT"
+name := "copytool"
 
 // enable versioning based on tags, see https://git-scm.com/docs/git-describe
 // requires a full repo clone on the continuous integration machine (not a shallow clone)
@@ -174,7 +174,8 @@ libraryDependencies ++= Seq(
   "org.apache.spark" %% "spark-core" % sparkVersion % clusterDependencyScope,
   "org.apache.spark" %% "spark-sql"  % sparkVersion % clusterDependencyScope,
   // "org.typelevel"             %% "frameless-dataset" % "0.4.0",
-  // "org.apache.hadoop"          % "hadoop-aws"     % "2.7.3" % clusterDependencyScope,
+  "org.apache.hadoop"          % "hadoop-azure"     % "2.7.3" % clusterDependencyScope,
+  "com.microsoft.azure" % "azure-storage" % "8.6.5",
   // "org.apache.hadoop"          % "hadoop-client"  % "2.7.3" % clusterDependencyScope,
   //"org.vegas-viz"              %% "vegas-spark"   % "0.3.11",
   "org.slf4j"                  % "slf4j-log4j12"  % "1.7.30",

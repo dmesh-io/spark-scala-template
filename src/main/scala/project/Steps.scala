@@ -17,8 +17,6 @@ package project
 
 import com.typesafe.scalalogging.LazyLogging
 import org.apache.spark.sql.{ Dataset, Row, SparkSession }
-import org.apache.spark.sql.functions._
-import Functions._
 
 /**
   * This contains the Steps to build a complete DAG
@@ -29,7 +27,6 @@ import Functions._
   * to make this readable and reviewable for everyone understanding SQL.
   */
 class Steps(spark: SparkSession) extends LazyLogging {
-  import spark.implicits._
 
   /**
     * Read data from local / hdfs / s3 source, the first step of a DAG
@@ -37,13 +34,7 @@ class Steps(spark: SparkSession) extends LazyLogging {
     * @param input Path to the data to read
     */
   def read(input: String): Dataset[Row] =
-    spark.read.format("json").load(input)
-
-  def decodeData(df: Dataset[Row]): Dataset[Row] =
-    df.withColumn("data", keyValueStringToMapUDF(unbase64($"raw_data")))
-
-  def selectFinalFields(df: Dataset[Row]): Dataset[Row] =
-    df.select("data.key1")
+    spark.read.parquet(input)
 
   /**
     * Write or show the data of a Dataset. This is the last step of a DAG.
@@ -56,7 +47,7 @@ class Steps(spark: SparkSession) extends LazyLogging {
     */
   def writeOrShowData(df: Dataset[Row], output: String, linesToShow: Option[Int]): Unit =
     if (linesToShow.isDefined) {
-      df.show(linesToShow.getOrElse(0), false)
+      df.show(linesToShow.getOrElse(0), truncate = false)
     } else {
       df.write
         .mode("overwrite")

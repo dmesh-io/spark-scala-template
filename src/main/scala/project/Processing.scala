@@ -107,6 +107,8 @@ object Processing extends LazyLogging {
       .appName(BuildInfo.name)
       .getOrCreate()
 
+    spark.sparkContext.hadoopConfiguration.set("fs.azure", "org.apache.hadoop.fs.azure.NativeAzureFileSystem")
+
     val processing = new Processing(spark)
     try processing.process(
       input = conf.input(),
